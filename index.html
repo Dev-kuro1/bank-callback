@@ -1,17 +1,89 @@
-<!DOCTYPE html>
+<!doctype html>
+<!--
+  Weiterleitung für die Bankanbindung von LifeOS.
 
+  Warum es diese Seite gibt: Enable Banking leitet nach dem Bank-Login auf eine
+  freigegebene Rückleitungs-Adresse weiter. Manche Konten erlauben dort nur
+  https-Adressen, nicht das App-eigene `lifeos://`. Diese Seite ist die
+  https-Adresse dazwischen: Sie nimmt den Code aus der Adresszeile und springt
+  sofort nach `lifeos://bank-callback` weiter, wo die App ihn auffängt.
+
+  Was hier NICHT passiert: Nichts wird gespeichert, nichts geladen, nichts
+  gezählt. Keine Schriften, keine Skripte von außen, keine Statistik. Der Code
+  bleibt im Browser und geht nur an die App.
+-->
 <html lang="de">
 <head>
-<meta charset="UTF-8">
-<title>Weiterleitung...</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex, nofollow">
+<title>Zurück zu LifeOS</title>
+<style>
+  :root { color-scheme: light dark; --bg:#0f1115; --fg:#f2f3f5; --muted:#9aa0aa; --accent:#3fd3a0; --card:#1a1d24; }
+  @media (prefers-color-scheme: light) { :root { --bg:#f6f7f9; --fg:#14161b; --muted:#5d6370; --card:#ffffff; } }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+         background:var(--bg); color:var(--fg); font:16px/1.45 -apple-system, system-ui, sans-serif; padding:24px; }
+  main { width:100%; max-width:420px; background:var(--card); border-radius:24px; padding:28px; text-align:center; }
+  h1 { font-size:22px; margin:0 0 8px; }
+  p { color:var(--muted); margin:0 0 20px; }
+  a.button { display:block; background:var(--accent); color:#0b1a14; text-decoration:none; font-weight:600;
+             padding:14px; border-radius:16px; margin-bottom:12px; }
+  button { width:100%; padding:12px; border-radius:16px; border:1px solid var(--muted); background:transparent;
+           color:var(--fg); font:inherit; }
+  code { display:block; word-break:break-all; font-size:13px; color:var(--muted); margin:16px 0 0; }
+  .hidden { display:none; }
+</style>
 </head>
 <body>
-<p>Kehre zur App zurück...</p>
+<main>
+  <h1 id="title">Zurück zur App …</h1>
+  <p id="text">Die Bank hat dich angemeldet. LifeOS öffnet sich gleich von selbst.</p>
+  <a class="button" id="open" href="lifeos://bank-callback">LifeOS öffnen</a>
+  <button id="copy" class="hidden" type="button">Code kopieren</button>
+  <code id="code" class="hidden"></code>
+</main>
 <script>
-  // Leitet alle Query-Parameter (code, state, ...) 1:1 an die
-  // native App weiter - reine Weiterleitung, es werden keine Daten
-  // hier gespeichert oder verarbeitet.
-  window.location.replace("Dev-kuro01://bank-callback" + window.location.search);
+(function () {
+  // Manche Banken hängen die Werte hinter "#" statt hinter "?". Beides wird angenommen.
+  var query = window.location.search;
+  if ((!query || query.length < 2) && window.location.hash.length > 1) {
+    query = "?" + window.location.hash.slice(1);
+  }
+  var target = "lifeos://bank-callback" + (query || "");
+  var params = new URLSearchParams(query || "");
+
+  document.getElementById("open").href = target;
+
+  var error = params.get("error");
+  if (error) {
+    document.getElementById("title").textContent = "Anmeldung nicht abgeschlossen";
+    document.getElementById("text").textContent =
+      "Die Bank meldet: " + (params.get("error_description") || error) +
+      ". Öffne LifeOS und versuch es dort noch einmal.";
+  }
+
+  // Rückfall, falls der Sprung in die App nicht klappt: Code von Hand kopieren
+  // und in LifeOS unter "Rückleitung einfügen" einsetzen.
+  var code = params.get("code");
+  if (code) {
+    var codeBox = document.getElementById("code");
+    var copy = document.getElementById("copy");
+    codeBox.textContent = code;
+    codeBox.classList.remove("hidden");
+    copy.classList.remove("hidden");
+    copy.addEventListener("click", function () {
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(target).then(function () { copy.textContent = "Kopiert"; });
+      }
+    });
+  }
+
+  // Sofort weiter. Fängt die App die Adresse nicht auf, bleibt die Seite mit
+  // dem Knopf stehen, statt ins Leere zu laufen.
+  if (!error) { window.location.replace(target); }
+})();
 </script>
 </body>
 </html>
